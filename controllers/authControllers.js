@@ -52,9 +52,8 @@ const uploadProfilePicture = (fileBuffer) => {
 
 const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, skills } = req.body;
 
-    // Check required fields
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -62,7 +61,6 @@ const register = async (req, res) => {
       });
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
@@ -71,14 +69,18 @@ const register = async (req, res) => {
         message: "User already exists",
       });
     }
-    
+
     let resumeUrl = null;
     let profilePictureUrl = null;
 
     if (req.files?.resume) {
-      const result = await uploadResume(req.files.resume[0].buffer);
+      const result = await uploadResume(
+        req.files.resume[0].buffer
+      );
+
       resumeUrl = result.secure_url;
     }
+
 
     if (req.files?.profilePicture) {
       const result = await uploadProfilePicture(
@@ -88,12 +90,23 @@ const register = async (req, res) => {
       profilePictureUrl = result.secure_url;
     }
 
+    let skillsArray = [];
+
+    if (skills) {
+      try {
+        skillsArray = JSON.parse(skills);
+      } catch (error) {
+        skillsArray = [];
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    // Create user
+
     const user = await User.create({
       name,
       email,
-      password : hashedPassword,
+      password: hashedPassword,
+      skills: skillsArray,
       resume: resumeUrl,
       profilePicture: profilePictureUrl,
     });
@@ -101,20 +114,25 @@ const register = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "User registered successfully",
+
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
+        skills: user.skills,
+        resume: user.resume,
+        profilePicture: user.profilePicture,
       },
     });
-    } catch (error) {
-      console.log("REGISTER ERROR:", error.message);
 
-      res.status(500).json({
-        success: false,
-        message: "Failed to register user",
-      });
-    }
+  } catch (error) {
+    console.log("REGISTER ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to register user",
+    });
+  }
 };
 
 const login = async (req, res) => {
